@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8GZHXXHPZD"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-8GZHXXHPZD');
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#FDB913">
@@ -223,19 +231,6 @@
       border-radius: 15px;
       box-shadow: var(--shadow);
       transform: rotate(-2.2deg);
-    }
-
-    .preview-stage::before {
-      position: absolute;
-      top: -26px;
-      right: -24px;
-      width: 82px;
-      height: 82px;
-      content: "";
-      background: var(--yellow);
-      border: 5px solid var(--white);
-      border-radius: 50%;
-      box-shadow: 0 7px 0 rgba(123, 47, 0, 0.22);
     }
 
     .preview-top {
@@ -617,12 +612,6 @@
         padding: 13px;
       }
 
-      .preview-stage::before {
-        right: -13px;
-        width: 60px;
-        height: 60px;
-      }
-
       .canvas-frame {
         border-radius: 36px 8px 8px;
       }
@@ -714,6 +703,17 @@
 
   <script>
     "use strict";
+
+    const trackingParams = new URLSearchParams(window.location.search);
+    const trackingCampaign = trackingParams.get("campanha") || trackingParams.get("utm_campaign") || "campanha-padrao";
+    const trackingSource = trackingParams.get("origem") || trackingParams.get("utm_source") || "direto";
+
+    function trackCampaignEvent(name, extra = {}) {
+      if (typeof gtag !== "function") return;
+      gtag("event", name, { campaign_id: trackingCampaign, campaign_source: trackingSource, ...extra });
+    }
+
+    trackCampaignEvent("campaign_view");
 
     const SIZE = 768;
     const MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -901,6 +901,8 @@
         photo = await loadImage(file, ["image/*"]);
         photoName.textContent = file.name;
         draw();
+        trackCampaignEvent("photo_upload", { file_type: file.type || "unknown" });
+        trackCampaignEvent("card_generated");
         updateInterface();
       } catch (error) {
         photo = null;
@@ -936,6 +938,7 @@
         link.download = CAMPAIGN.downloadName;
         link.href = objectUrl;
         link.click();
+        trackCampaignEvent("card_download");
 
         setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
         updateInterface();
