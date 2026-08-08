@@ -1,4 +1,4 @@
-name: Remove preview circle
+name: Site maintenance
 
 on:
   push:
@@ -8,53 +8,44 @@ permissions:
   contents: write
 
 jobs:
-  remove-circle:
+  update-site:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remove decorative preview circle
+      - name: Update site
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
 
-          block = '''    .preview-stage::before {
-      position: absolute;
-      top: -26px;
-      right: -24px;
-      width: 82px;
-      height: 82px;
-      content: "";
-      background: var(--yellow);
-      border: 5px solid var(--white);
-      border-radius: 50%;
-      box-shadow: 0 7px 0 rgba(123, 47, 0, 0.22);
-    }
+          circle = '''    .preview-stage::before {\n      position: absolute;\n      top: -26px;\n      right: -24px;\n      width: 82px;\n      height: 82px;\n      content: "";\n      background: var(--yellow);\n      border: 5px solid var(--white);\n      border-radius: 50%;\n      box-shadow: 0 7px 0 rgba(123, 47, 0, 0.22);\n    }\n\n'''
+          circle_mobile = '''      .preview-stage::before {\n        right: -13px;\n        width: 60px;\n        height: 60px;\n      }\n\n'''
+          s = s.replace(circle, '').replace(circle_mobile, '')
 
-'''
-          mobile = '''      .preview-stage::before {
-        right: -13px;
-        width: 60px;
-        height: 60px;
-      }
+          if 'googletagmanager.com/gtag/js?id=G-8GZHXXHPZD' not in s:
+              tag = '''\n  <!-- Google tag (gtag.js) -->\n  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8GZHXXHPZD"></script>\n  <script>\n    window.dataLayer = window.dataLayer || [];\n    function gtag(){dataLayer.push(arguments);}\n    gtag('js', new Date());\n    gtag('config', 'G-8GZHXXHPZD');\n  </script>\n'''
+              s = s.replace('<head>\n', '<head>' + tag, 1)
 
-'''
+          if 'function trackCampaignEvent' not in s:
+              tracking = '''    const trackingParams = new URLSearchParams(window.location.search);\n    const trackingCampaign = trackingParams.get("campanha") || trackingParams.get("utm_campaign") || "campanha-padrao";\n    const trackingSource = trackingParams.get("origem") || trackingParams.get("utm_source") || "direto";\n\n    function trackCampaignEvent(name, extra = {}) {\n      if (typeof gtag !== "function") return;\n      gtag("event", name, { campaign_id: trackingCampaign, campaign_source: trackingSource, ...extra });\n    }\n\n    trackCampaignEvent("campaign_view");\n\n'''
+              s = s.replace('    const SIZE = 768;\n', tracking + '    const SIZE = 768;\n', 1)
 
-          updated = s.replace(block, '').replace(mobile, '')
-          if updated == s:
-              print('No matching circle styles found; nothing to change.')
-          else:
-              p.write_text(updated, encoding='utf-8')
-              print('Preview circle styles removed.')
+          if 'trackCampaignEvent("photo_upload"' not in s:
+              s = s.replace('        photoName.textContent = file.name;\n        draw();\n        updateInterface();', '        photoName.textContent = file.name;\n        draw();\n        trackCampaignEvent("photo_upload", { file_type: file.type || "unknown" });\n        trackCampaignEvent("card_generated");\n        updateInterface();', 1)
+
+          if 'trackCampaignEvent("card_download"' not in s:
+              s = s.replace('        link.href = objectUrl;\n        link.click();\n\n        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);', '        link.href = objectUrl;\n        link.click();\n        trackCampaignEvent("card_download");\n\n        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);', 1)
+
+          p.write_text(s, encoding='utf-8')
           PY
-      - name: Commit change
+      - name: Commit site updates
         run: |
           if git diff --quiet; then
             exit 0
           fi
-          git config user.name "specialdogfotos"
+          git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "[skip ci] remove decorative preview circle"
+          git commit -m "[skip ci] update site analytics"
           git push
