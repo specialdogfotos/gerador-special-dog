@@ -1,5 +1,5 @@
 window.SPECIAL_DOG_ANALYTICS = Object.freeze({
-  measurementId: "",
+  measurementId: "G-8GZHXXHPZD",
   defaultCampaign: "campanha-padrao",
   defaultSource: "direto"
 });
